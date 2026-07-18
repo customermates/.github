@@ -1,0 +1,62 @@
+name: Repository policy
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  validate:
+    name: Validate repository policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Mark repository policy as pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          gh api --method POST
+          --header "X-GitHub-Api-Version: 2022-11-28"
+          "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}"
+          --field state=pending
+          --field context=repository-policy
+          --field description="Validating repository policy"
+          --field target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+      - name: Check out the immutable policy revision
+        id: checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .repository-policy
+          persist-credentials: false
+      - name: Validate branch, commits, title, and description
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .repository-policy/repository-policy/validate.sh
+      - name: Finalize repository policy status
+        if: always()
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
+        run: |
+          state=failure
+          description="Repository policy failed"
+          if [[ "$CHECKOUT_OUTCOME" == "success" && "$VALIDATION_OUTCOME" == "success" ]]; then
+            state=success
+            description="Repository policy passed"
+          fi
+          gh api --method POST \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            --field state="$state" \
+            --field context=repository-policy \
+            --field description="$description" \
+            --field target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
