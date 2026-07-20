@@ -139,33 +139,55 @@ validate_body() {
   fi
 }
 
+# Assertions must report and record rather than rely on `set -e`. A bare `[[ ... ]]` inside a
+# function does not abort the script here, so before this the entire self-test suite was
+# unenforced: it printed "passed" and exited 0 even with a validator broken outright.
+self_test_failures=0
+
+expect_error_count() {
+  local label="$1" expected="$2" actual="${#errors[@]}"
+  if (( actual != expected )); then
+    printf 'SELF-TEST FAILED: %s (expected %d error(s), got %d)\n' "$label" "$expected" "$actual" >&2
+    self_test_failures=$(( self_test_failures + 1 ))
+  fi
+}
+
+expect_error_count_min() {
+  local label="$1" minimum="$2" actual="${#errors[@]}"
+  if (( actual < minimum )); then
+    printf 'SELF-TEST FAILED: %s (expected at least %d error(s), got %d)\n' "$label" "$minimum" "$actual" >&2
+    self_test_failures=$(( self_test_failures + 1 ))
+  fi
+}
+
 self_test() {
   local temporary_directory
   temporary_directory="$(mktemp -d)"
   trap 'rm -rf "$temporary_directory"' RETURN
+  self_test_failures=0
 
   errors=()
   validate_branch "feat/contact-import"
   validate_branch "sandbox/rewe"
   validate_branch "dependabot/npm_and_yarn/zod-4.0.0"
-  [[ ${#errors[@]} -eq 0 ]]
+  expect_error_count "conventional and dependabot branches are accepted" 0
 
   errors=()
   validate_branch "feature/contact-import"
   validate_branch "feat/Contact_import"
-  [[ ${#errors[@]} -eq 2 ]]
+  expect_error_count "unknown type and non-kebab-case branches are rejected" 2
 
   errors=()
   validate_header "Header" "feat(contacts): add contact import"
   validate_header "Header" "fix!: prevent duplicate messages"
   validate_header "Header" "chore(release): 1.4.0"
-  [[ ${#errors[@]} -eq 0 ]]
+  expect_error_count "conventional headers are accepted" 0
 
   errors=()
   validate_header "Header" "Feature: Add contact import"
   validate_header "Header" "feat: add contact import."
   validate_header "Header" "feat(Bad Scope): add contact import"
-  [[ ${#errors[@]} -eq 3 ]]
+  expect_error_count "malformed headers are rejected" 3
 
   printf '%s\n' \
     '## Summary' 'Adds contact import.' '' \
@@ -174,7 +196,7 @@ self_test() {
     '## Impact and rollback' 'Revert the pull request.' > "$temporary_directory/valid-body"
   errors=()
   validate_body "$temporary_directory/valid-body"
-  [[ ${#errors[@]} -eq 0 ]]
+  expect_error_count "a complete, ordered body is accepted" 0
 
   printf '%s\n' \
     '## Context' 'Out of order.' '' \
@@ -183,14 +205,20 @@ self_test() {
     '## Validation' 'Duplicate.' > "$temporary_directory/invalid-body"
   errors=()
   validate_body "$temporary_directory/invalid-body"
-  [[ ${#errors[@]} -ge 4 ]]
+  expect_error_count_min "an out-of-order, empty, duplicated, incomplete body is rejected" 4
+
+  if (( self_test_failures > 0 )); then
+    printf '%s\n' "Repository policy self-test failed: ${self_test_failures} assertion(s)." >&2
+    return 1
+  fi
 
   printf '%s\n' "Repository policy self-test passed."
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
-  self_test
-  exit
+  # Explicit, because a nonzero return from self_test does not abort under `set -e` here.
+  self_test || exit 1
+  exit 0
 fi
 
 : "${GH_TOKEN:?GH_TOKEN is required}"
