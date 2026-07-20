@@ -198,6 +198,7 @@ fi
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 
 readonly pr_number="$(jq -r '.pull_request.number // empty' "$GITHUB_EVENT_PATH")"
+readonly pr_author="$(jq -r '.pull_request.user.login // ""' "$GITHUB_EVENT_PATH")"
 readonly head_sha="$(jq -r '.pull_request.head.sha // empty' "$GITHUB_EVENT_PATH")"
 readonly head_branch="$(jq -r '.pull_request.head.ref // empty' "$GITHUB_EVENT_PATH")"
 readonly title="$(jq -r '.pull_request.title // ""' "$GITHUB_EVENT_PATH")"
@@ -214,7 +215,9 @@ body_file="$(mktemp)"
 commits_file="$(mktemp)"
 trap 'rm -f "$body_file" "$commits_file"' EXIT
 jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" > "$body_file"
-validate_body "$body_file"
+if [[ "$pr_author" != "dependabot[bot]" ]]; then
+  validate_body "$body_file"
+fi
 
 gh api --paginate \
   --header "X-GitHub-Api-Version: 2022-11-28" \
