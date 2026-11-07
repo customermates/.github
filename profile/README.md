@@ -14,7 +14,7 @@
   <a href="https://customermates.com/docs/self-hosting">Self-hosting</a>
 </p>
 
-Customermates keeps customer context, company knowledge and next steps together, so AI agents can work with your customers, your knowledge and your rules, while people approve what goes out.
+Customermates keeps customer context, company knowledge and next steps together, so AI agents can work with your customers, your knowledge and your rules.
 
 | Repository | What it is |
 | --- | --- |
@@ -22,4 +22,4 @@ Customermates keeps customer context, company knowledge and next steps together,
 | [n8n-nodes-crm](https://github.com/customermates/n8n-nodes-crm) | n8n community node for your CRM records |
 | [cursor-plugin](https://github.com/customermates/cursor-plugin) | Customermates MCP server for Cursor |
 
-Built by [Benjamin Wagner](https://github.com/benjiwagner) in Mannheim, Germany. Contributions are welcome: see [CONTRIBUTING.md](https://github.com/customermates/.github/blob/main/CONTRIBUTING.md).
+Built by [Benjamin Wagner](https://github.com/benjiwagner) in Mannheim, Germany. Contributions are welcome: see [CONTRIBUTING.md](https://github.com/customermates/.github/blob/main/CONTRIBUTING.md). More founder tools: [We Are Founders directory](https://directory.wearefounders.uk/).
